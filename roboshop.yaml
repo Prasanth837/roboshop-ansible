@@ -1,93 +1,92 @@
 # ansible-playbook -i localhost,   -e '{"instances":["mongodb","catalogue","redis","user","cart","mysql","shipping","rabbitmq","payment","frontend"]}'  -e action=destroy roboshop.yaml
-- name: create ec2 and r53 records
-  hosts: all
-  connection: local
-  vars:
-    sg_id: sg-076ec9ad23dab2b28
-    ami_id: ami-0220d79f3f480ecf5
-    domain_name: daws88s.online
-    env: dev
-    action: create
-    instances:
+- name: create ec2 and r53 records  ##############Play started ##############.
+  hosts: all                         #hosts give as all so it will check inventory.ini for all hosts
+  connection: local                  #connection given as local means we are connecting local to create and destroy ec2 instance by running yaml playbooks
+  vars:                              ####variable creation started #########
+    sg_id: sg-050dd0d858a37731c      #fetch aws security group, Here I gave daws-88s-allow-all security group details
+    ami_id: ami-0220d79f3f480ecf5    #Give AMI details, Here I gave Redhat-9-DevOps-Practice ami id.
+    domain_name: abstractglobal.online  #Domain name is abstractglobal.online which fetch from AWS Route53 hostedzone information.
+    env: dev                         #env can be changed however we want like dev, prod, qa etc to create instances accordingly.
+    action: create                   #action also be changed however we want like create helps to create ec2 instance and destroy to destroy created instance.
+    instances:                       #created instance as list to send it to loop to create these instances. 
     - mongodb
     - catalogue
   tasks:
-  ### CREATE ###
-  - name: create ec2 instance
-    amazon.aws.ec2_instance:
-      instance_type: "t3.micro"
-      security_group: "{{ sg_id }}"
-      image_id: "{{ ami_id }}"
-      name: "{{ item }}-{{ env }}"
-      tags:
+  - name: create ec2 instance          ####### Ec2 instance creation task ########
+    amazon.aws.ec2_instance:           #Use aws(amazon.aws.ec2) module to create ec2 instance
+      instance_type: "t3.micro"        #Instance type is t3.micro
+      security_group: "{{ sg_id }}"    #fetching the security group id which created at vars to create ec2 instance.
+      image_id: "{{ ami_id }}"         #fetching the ami id which created at vars to create ec2 instance based on it.
+      name: "{{ item }}-{{ env }}"     # Here the item fetched from the loop and env fetched from env varaibles like mongofb-dev, mongodb-qa, mongodb-prod etc...
+      tags:                            #tags helps to understand the instance information like whether its prod or dev instance.
         Project: roboshop
         Component: "{{ item }}"
         Environment: "{{ env }}"
         Name: "{{ item }}-{{ env }}"
-    loop: "{{ instances }}"
-    register: ec2_output
-    when: action == "create"
+    loop: "{{ instances }}"       #looping the list. loop will run till the list ends. Here instances acts as item and fetch its value like mongodb, catalogue
+    register: ec2_output          #register helps to fetch output of the task into a variable called ec2_output. 
+    when: action == "create"      ##this task will also only work when the action is create as per our action variable
 
-  - name: print the output
-    ansible.builtin.debug:
-      msg: "{{ ec2_output }}"
-    when: action == "create"
+  - name: print the output          #######print taask ###########
+    ansible.builtin.debug:          ##use ansible builtin print module (ansible.builtin.debug) to print msg during execution
+      msg: "{{ ec2_output }}"       ##msg here is printing the collected ec2_output using register.
+    when: action == "create"        ##this task will also only work when the action is create as per our action variable
 
-  - name: create r53 records
-    amazon.aws.route53:
-      state: present
-      zone: "{{ domain_name }}"
-      record: "{{ item.item }}-{{ env }}.{{ domain_name }}" # mongodb-dev.daws88s.online, frontend-dev.daws88s.online
-      type: A
-      ttl: 1
-      value: "{{ item.instances[0].private_ip_address }}"
+  - name: create r53 records       ##### route 53 creation task #####
+    amazon.aws.route53:             ##use aws module (amazon.aws.route53) to create r53 records
+      state: present                ##state present means create####
+      zone: "{{ domain_name }}"       ###it will create route 53 records under the specified hosted zone which is abstractglobal.domain####
+      record: "{{ item.item }}-{{ env }}.{{ domain_name }}" # item.item information fetched from ec2_output like mongodb so the record will be mongodb-dev.abstractglobal.online,
+      type: A                           #it's type A record
+      ttl: 1                            #ttl should be less to avoid late updating of records during maintence window
+      value: "{{ item.instances[0].private_ip_address }}"  #fetching the privite as per item.instance information from ec2_output using register
       wait: false
       overwrite: true
-    loop: "{{ ec2_output.results }}" # list
-    when: action == "create"
+    loop: "{{ ec2_output.results }}"   #fetching ec2_output result information and sending as item to this task.
+    when: action == "create"            #it will only create when action variable is create
 
-  - name: create r53 record for frontend
+  - name: create r53 record for frontend     ###frontend route 53 record creation task#####
     amazon.aws.route53:
-      state: present
+      state: present                  #####state present means record creation starts####
       zone: "{{ domain_name }}"
-      record: "roboshop-{{ env }}.{{ domain_name }}" # roboshop-dev.daws88s.online
+      record: "roboshop-{{ env }}.{{ domain_name }}" # roboshop-dev.abstractglobal.online
       type: A
       ttl: 1
-      value: "{{ item.instances[0].public_ip_address }}"
+      value: "{{ item.instances[0].public_ip_address }}" #fetching public ip of the item as per loop from ec2_output
       wait: false
       overwrite: true
-    loop: "{{ ec2_output.results }}"
+    loop: "{{ ec2_output.results }}"   #fetching ec2_output result information and sending as item to this task.
     when:  # and
-    - item.item == "frontend"
+    - item.item == "frontend"        #list of conditions shoulds be true to execute the task
     - action == "create"
 
   ### DESTROY ###
-  - name: delete r53 records for frontend
+  - name: delete r53 records for frontend    ###Destroy frontend route 53 record ####
     amazon.aws.route53:
-      state: absent
+      state: absent                     ##state is absent so record will be deleted###
       zone: "{{ domain_name }}"
-      record: "roboshop-{{ env }}.{{ domain_name }}" # roboshop-dev.daws88s.online
+      record: "roboshop-{{ env }}.{{ domain_name }}" # 
       type: A
       ttl: 1
     loop: "{{ instances }}"
     when:  # and
     - item == "frontend"
-    - action == "destroy"
+    - action == "destroy"           ###This task will only work when action variable is destroy###
 
-  - name: delete r53 records
+  - name: delete r53 records          ####delete r53 records task#####
     amazon.aws.route53:
-      state: absent
+      state: absent                    ##state is absent so record will be deleted###
       zone: "{{ domain_name }}"
       record: "{{ item }}-{{ env }}.{{ domain_name }}" # roboshop-dev.daws88s.online
       type: A
       ttl: 1
     loop: "{{ instances }}"
-    when: action == "destroy"
+    when: action == "destroy"    ###This task will only work when action variable is destroy###
 
-  - name: delete ec2 instance
+  - name: delete ec2 instance           ###Deletion of Ec2 instance task ######
     amazon.aws.ec2_instance:
-      state: absent
+      state: absent                     ###state is absent so deletion of ec2 instance start #####
       name: "{{ item }}-{{ env }}"
       wait: false
     loop: "{{ instances }}"
-    when: action == "destroy"
+    when: action == "destroy"       ###This task will only work when action variable is destroy###
