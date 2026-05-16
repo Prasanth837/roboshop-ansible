@@ -1,29 +1,29 @@
-- name: configure redis server
-  become: yes
-  hosts: redis
+- name: configure redis server                          ######Play started####
+  become: yes                                             ##become yes means giving root access
+  hosts: redis                                            #target host is redis which details will be fetched from inventory.ini
   tasks:
-  - name: enable redis 7
-    ansible.builtin.command: dnf module enable redis:7 -y
+  - name: enable redis 7                                ##enable redis version 7 task##
+    ansible.builtin.command: dnf module enable redis:7 -y     #uses command module to enable redis version 7#
 
-  - name: install redis
+  - name: install redis                           #install redis task##
     ansible.builtin.dnf:
-      name: redis 
-      state: present
+      name: redis                                 ##software name is redis##
+      state: present                              ##state present means install and state absent means remove###
 
-  - name: allow remote connections
-    ansible.builtin.replace:
-      path: /etc/redis/redis.conf
-      regexp: '127.0.0.1'
+  - name: allow remote connections                 ##replace task##
+    ansible.builtin.replace:                            
+      path: /etc/redis/redis.conf               ##take this path and search the regexp then replace it with the given value
+      regexp: '127.0.0.1'                       ##127.0.0.1 will become 0.0.0.0#
       replace: '0.0.0.0'
 
-  - name: disable protected mode
-    ansible.builtin.lineinfile:
-      path: /etc/redis/redis.conf
+  - name: disable protected mode                #its also replace task but using different module#
+    ansible.builtin.lineinfile:                 #ansible.builtin.lineinfile is an Ansible module used to manage individual lines in files.#
+      path: /etc/redis/redis.conf               #path is where the changes should implement. seaches for regexp then replace it with given value##
       regexp: 'protected-mode'
       line: 'protected-mode no'
 
-  - name: start and enable redis
-    ansible.builtin.service: 
-      name: redis
-      state: restarted
-      enabled: yes
+  - name: start and enable redis                #service task##
+    ansible.builtin.service:                  
+      name: redis                             #redis is the service name
+      state: restarted                        #state restarted means service restart
+      enabled: yes                            #enabing this service from boot level
