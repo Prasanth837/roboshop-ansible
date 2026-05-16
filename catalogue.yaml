@@ -1,82 +1,84 @@
-- name: configure catalogue
-  hosts: catalogue
-  become: yes
+- name: configure catalogue    #Play started##
+  hosts: catalogue              #target host is cattalogue which details will be configured at inventory.ini#
+  become: yes                   #become yes means providing root access to execute tasks at targeted host##
   tasks:
-  - name: enable nodejs 20
-    ansible.builtin.command: dnf module enable nodejs:20 -y
+  - name: enable nodejs 20                  #enable node js 20 task#
+    ansible.builtin.command: dnf module enable nodejs:20 -y  #using ansible builtin command module to install nodejs 20
 
-  - name: install nodejs
-    ansible.builtin.dnf:
-      name: nodejs
-      state: present
+  - name: install nodejs                  #install node js task#
+    ansible.builtin.dnf:                  #uses ansible builtin dnf module to install nodejs#
+      name: nodejs                        #name of the software is nodejs#
+      state: present                      #state present means install state absent means remmove 
+                                          
+ #we can give user state as well like present means ensure user exists and state absent means removes the user
+  - name: create system user roboshop     #creating user task##
+    ansible.builtin.user:                 #uses ansible builtin user module to create new user
+      name: roboshop                      #username is roboshop#
+      system: true                        #Create system user as its true if its false then it won't be a system user#
+      home: /app                          #home means giving home directory /app for this user#
+      shell: /sbin/nologin                #giving shell acess and its path is /sbin/nologin
+      comment: "Roboshop system user"     #tells the user is roboshop system user when its created.
+                                          
+  - name: delete app directory          #delete app directory task#
+    ansible.builtin.file:               #uses ansible builtin file module to create or delete files.
+      path: /app                        #file path where it should create or delete the file based on its path
+      state: absent                     #state absent means Remove file/directory state touch means create new empty file/update timestamp
 
-  - name: create system user roboshop
-    ansible.builtin.user:
-      name: roboshop
-      system: true
-      home: /app
-      shell: /sbin/nologin
-      comment: "Roboshop system user"
-  
-  - name: delete app directory
+
+  - name: create app directory          #create app directory task
     ansible.builtin.file:
-      path: /app
+      path: /app                          #state link means Create symbolic link and state file means Ensure file exists
+      state: directory                  #state directory means Ensure directory exists
+
+  - name: delete catalogue zip file       #delete catalogue zip file task#
+    ansible.builtin.file:                 
+      path: /tmp/catalogue.zip            #checks the path and performs the operation based on state. Here state is absent so deletes the zip file
       state: absent
 
-  - name: create app directory
-    ansible.builtin.file:
-      path: /app
-      state: directory
+  - name: download catalogue              #download catalogue task
+    ansible.builtin.get_url:              #ansible.builtin.get_url is an Ansible module used to download files from HTTP, HTTPS, or FTP URLs to remote servers.
+      url: https://roboshop-artifacts.s3.amazonaws.com/catalogue-v3.zip #url is to download from source
+      dest: /tmp/catalogue.zip            #dest is to place the downloaded file to destination path
 
-  - name: delete catalogue zip file
-    ansible.builtin.file:
-      path: /tmp/catalogue.zip
-      state: absent
+  - name: unarchieve catalogue          #unzip task#
+    ansible.builtin.unarchive:          #ansible.builtin.unarchive is an Ansible module used to extract compressed archive files on remote systems.
+      src: /tmp/catalogue.zip           #src means archived source file path
+      dest: /app                        #dest means unarchive the source file at destination path
+      remote_src: yes                   #giving permissiont to extract the files at remove server
 
-  - name: download catalogue
-    ansible.builtin.get_url:
-      url: https://roboshop-artifacts.s3.amazonaws.com/catalogue-v3.zip 
-      dest: /tmp/catalogue.zip
+  - name: install dependencies          #install dependencies task
+    community.general.npm:              #community.general.npm is an Ansible community module used to manage Node.js packages using the Node Package Manage
+      path: /app                        #here providing the project path to install dependencies
 
-  - name: unarchieve catalogue
-    ansible.builtin.unarchive:
-      src: /tmp/catalogue.zip
-      dest: /app
-      remote_src: yes
+  - name: copy catalogue service          #copy catalogue service task##
+    ansible.builtin.copy:                 #ansible.builtin.copy is used to copy files or text content from the Ansible control node to managed nodes
+      src: catalogue.service              #copies the source file and paste it at destiantion path
+      dest: /etc/systemd/system/catalogue.service  #destination path
 
-  - name: install dependencies
-    community.general.npm:
-      path: /app
-
-  - name: copy catalogue service
-    ansible.builtin.copy:
-      src: catalogue.service
-      dest: /etc/systemd/system/catalogue.service
-
-  - name: copy mongo repo
-    ansible.builtin.copy:
-      src: mongo.repo
+  - name: copy mongo repo                 #copy mongo repo task
+    ansible.builtin.copy:           
+      src: mongo.repo                     #copies source repo and paste it at destination path
       dest: /etc/yum.repos.d/mongo.repo
 
-  - name: install mongodb client
-    ansible.builtin.dnf:
-      name: mongodb-mongosh
-      state: present
+  - name: install mongodb client          ##install mongodb client task##
+    ansible.builtin.dnf:                    
+      name: mongodb-mongosh               #mongodb-mongosh is the software name to install
+      state: present                       #state present means install
 
-  - name: check products loaded
+  - name: check products loaded            #command task#
     ansible.builtin.command: mongosh --host "{{ MONGODB_HOST }}" --quiet  --eval 'db.getMongo().getDBNames().indexOf("catalogue")'
-    register: catalogue_output
+    register: catalogue_output            #takes the command output and stores at catalogue output variable with help of register
 
-  - name: print the output
-    ansible.builtin.debug:
-      msg: "{{ catalogue_output }}"
+  - name: print the output                #print task$
+    ansible.builtin.debug:                
+      msg: "{{ catalogue_output }}"         #prints the catalogue output 
 
-  - name: load the products
-    ansible.builtin.shell: mongosh --host "{{ MONGODB_HOST }}" </app/db/master-data.js
-    when: catalogue_output.stdout  | int < 0
+  - name: load the products                     ##load thr products task##
+    ansible.builtin.shell: mongosh --host "{{ MONGODB_HOST }}" </app/db/master-data.js  ##executes this command using command module
+    when: catalogue_output.stdout  | int < 0          #takes the output and Convert catalogue_output.stdout to an integer and check whether it is less than 0.
 
-  - name: start catalogue
+  - name: start catalogue                     ##catalogue service task##
     ansible.builtin.service:
-      name: catalogue
-      state: restarted
+      name: catalogue                             #service name is catalogue
+      state: restarted                          #state restarted means restarting the catalogue service
       enabled: yes
