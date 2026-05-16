@@ -1,6 +1,6 @@
-- name: configure cart
-  hosts: cart
-  become: yes
+- name: configure cart                                  #Play started#
+  hosts: cart                                           #target host is cart which will be fetch at inventory.ini during playbook execution#
+  become: yes                                           #Providing root access#
   tasks:
   - name: enable nodejs 20
     ansible.builtin.command: dnf module enable nodejs:20 -y
@@ -48,8 +48,8 @@
     community.general.npm:
       path: /app
 
-  - name: copy cart service
-    ansible.builtin.template:
+  - name: copy cart service                                        
+    ansible.builtin.template:  #ansible.builtin.template is an Ansible module used to copy dynamic configuration files using the Jinja2 templating engine.
       src: cart.service
       dest: /etc/systemd/system/cart.service
   
