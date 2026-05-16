@@ -1,16 +1,16 @@
-- name: configure user
-  hosts: user
-  become: yes
+- name: configure user                            #Play started#
+  hosts: user                                   #target host is user and these will be fetched from inventory.ini file during execution##
+  become: yes                                   #providing root acces#
   tasks:
-  - name: enable nodejs 20
+  - name: enable nodejs 20                          #enable nodejs task##
     ansible.builtin.command: dnf module enable nodejs:20 -y
 
-  - name: install nodejs
+  - name: install nodejs                          #Install node js task##
     ansible.builtin.dnf:
       name: nodejs
       state: present
 
-  - name: create system user roboshop
+  - name: create system user roboshop           #create user task##
     ansible.builtin.user:
       name: roboshop
       system: true
@@ -18,46 +18,46 @@
       shell: /sbin/nologin
       comment: "Roboshop system user"
   
-  - name: delete app directory
+  - name: delete app directory              #deleting directory task##
     ansible.builtin.file:
       path: /app
       state: absent
 
-  - name: create app directory
+  - name: create app directory              ##creating directory task
     ansible.builtin.file:
       path: /app
       state: directory
 
-  - name: delete user zip file
+  - name: delete user zip file              ##deleting archive file task##
     ansible.builtin.file:
       path: /tmp/user.zip
       state: absent
 
-  - name: download user
+  - name: download user                 ##downloading user code task##
     ansible.builtin.get_url:
       url: https://roboshop-artifacts.s3.amazonaws.com/user-v3.zip 
       dest: /tmp/user.zip
 
-  - name: unarchieve user
+  - name: unarchieve user               ##unziping the usercode##
     ansible.builtin.unarchive:
       src: /tmp/user.zip
       dest: /app
       remote_src: yes
 
-  - name: install dependencies
+  - name: install dependencies        ##downloading npm dependencies task##
     community.general.npm:
       path: /app
 
-  - name: copy user service
+  - name: copy user service           ##copying service from soruce to desination task##
     ansible.builtin.template:
       src: user.service
       dest: /etc/systemd/system/user.service
 
-  - name: daemon reload
+  - name: daemon reload                   ##daemon reload task##
     ansible.builtin.systemd_service:
       daemon_reload: true
 
-  - name: start user
+  - name: start user                        ##service restart task##      
     ansible.builtin.service:
       name: user
       state: restarted
