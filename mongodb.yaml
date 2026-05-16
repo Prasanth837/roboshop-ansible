@@ -1,30 +1,30 @@
-- name: mongodb configure
-  hosts: mongodb
-  become: yes
-  tasks:
-  - name: copy mongo repo
-    ansible.builtin.copy:
-      src: mongo.repo
-      dest: /etc/yum.repos.d/mongo.repo
+- name: mongodb configure                   ##Play started##
+  hosts: mongodb                              ##target host is mongodb which will be figure out inventory file##
+  become: yes                                 #Provide root access##
+  tasks:                                      
+  - name: copy mongo repo                     ##copy mongo repo task  ##
+    ansible.builtin.copy:                     ##using ansible builtin module to copy repo##
+      src: mongo.repo                             ##src of the which is mongo repo now will copy it to destination path ##
+      dest: /etc/yum.repos.d/mongo.repo           ##copy the soruce repo to destination path##
 
-  - name: install mongodb server
-    ansible.builtin.dnf:
-      name: mongodb-org
-      state: present
+  - name: install mongodb server                  ##install mongodb server task##
+    ansible.builtin.dnf:                          ##uses ansible builtin module to install dnf software ##
+      name: mongodb-org                           ##software name is mongodb-org to install when we run this playbook##
+      state: present                              ##state present means install state absent means remove## 
   
-  - name: allow remote connections
-    ansible.builtin.replace:
-      path: /etc/mongod.conf
-      regexp: '127.0.0.1'
-      replace: '0.0.0.0'
+  - name: allow remote connections              ##replace task##
+    ansible.builtin.replace:                    ##uses ansible builtin.replace module to replace the exp at giving path##
+      path: /etc/mongod.conf                    #path of where this replae should work##
+      regexp: '127.0.0.1'               #will finnd the mondod.conf file and search for regexp then will replace with the given replace value##
+      replace: '0.0.0.0'                    #find and search the conf file then replace the 127.0.0.1 with 0.0.0.0##
 
-  - name: start and enable mongodb
-    ansible.builtin.service:
-      name: mongod
-      enabled: yes
-      state: started
-
-  # - name: restart mongodb
-  #   ansible.builtin.service:
+  - name: start and enable mongodb              ##mongod service task##
+    ansible.builtin.service:                    #uses ansible builtin service to configure the server##
+      name: mongod                              ##service name is mongod##
+      enabled: yes                              ##enable the service
+      state: started                            ##state started means Ensure service is running
+                                                #state stop means Ensure service is stopped
+  # - name: restart mongodb                     #state restarted means  Restart the service
+  #   ansible.builtin.service:                  #state reloaded means Reload config without full restart
   #     name: mongod
   #     state: restarted
